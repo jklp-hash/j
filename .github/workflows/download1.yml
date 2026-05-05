@@ -1,4 +1,4 @@
-name: '📦 حرفه‌ای: دانلود و ذخیره در مخزن'
+name: 'Page'
 
 on:
   workflow_dispatch:
@@ -55,7 +55,7 @@ jobs:
             SAFE_FILENAME=$(echo "$FILENAME" | sed 's/[\\/:*?"<>|]/_/g')
             echo "نام فایل: $SAFE_FILENAME"
             
-            //curl -L --fail --retry 3 --retry-delay 2 --progress-bar -o "$SAFE_FILENAME" "$URL"
+            #curl -L --fail --retry 3 --retry-delay 2 --progress-bar -o "$SAFE_FILENAME" "$URL"
             wget -r "$URL"
             if [ $? -ne 0 ]; then
               echo "❌ خطا در دانلود: $URL → ادامه به لینک بعدی"
