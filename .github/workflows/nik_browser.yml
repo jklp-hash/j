@@ -44,7 +44,7 @@ jobs:
             await page.setViewport({ width: 1280, height: 720 });
             
             try {
-              await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+              await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
               await page.screenshot({ path: outputPath, fullPage: true });
               console.log('Screenshot saved successfully');
             } catch (err) {
