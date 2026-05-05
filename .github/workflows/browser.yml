@@ -93,6 +93,21 @@ jobs:
           echo "Taking screenshot..."
           node screenshot.js "$URL" "$FOLDER/screenshot.html"
 
+          # Base URL for resolving relative links
+          BASE_URL="${URL%%/*}"
+          BASE_DOMAIN=$(echo "$URL" | awk -F/ '{print $3}')
+
+          while IFS= read -r link; do
+            [ -z "$link" ] && continue
+            
+            if [[ "$link" = /* ]]; then
+              ABSOLUTE_URL="${BASE_URL}${link}"
+            elif [[ "$link" =~ ^https?:// ]]; then
+              ABSOLUTE_URL="$link"
+            else
+              ABSOLUTE_URL="${BASE_URL}/${link}"
+            fi
+
         
       - name: Commit and push
         run: |
