@@ -89,14 +89,9 @@ jobs:
           mkdir -p "$FOLDER" "$MEDIA_FOLDER"
 
 
-
-          > "$FOLDER/media_links.txt"
-          > "$FOLDER/other_links.txt"
-          > "$FOLDER/downloaded_media.md"
-          echo "## Downloaded Media Files" > "$FOLDER/downloaded_media.md"
-          echo "" >> "$FOLDER/downloaded_media.md"
-
-    
+          # Take screenshot
+          echo "Taking screenshot..."
+          node screenshot.js "$URL" "$FOLDER/screenshot.html"
 
         
       - name: Commit and push
