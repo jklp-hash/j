@@ -1,219 +1,525 @@
-name: 🌐 4-Browse the Web
+name: ⬇️  01- Download from url
 
 on:
   workflow_dispatch:
     inputs:
-      url:
-        description: 'URL to visit'
+      urls:
+        description: 'Space-separated list of URLs to download'
         required: true
+        type: string
+      mode:
+        description: 'Download mode'
+        required: false
+        default: 'normal'
+        type: choice
+        options:
+          - normal
+          - zip
+      password:
+        description: 'Password for zip files (optional)'
+        required: false
+        default: ''
         type: string
 
 jobs:
-  browse:
+  save-file:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install system dependencies
+      - name: Install aria2 and zip
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl zip
+          sudo apt-get install -y aria2 zip curl
 
-      - name: Setup Node and Puppeteer
+      - name: AVASAM Downloader - https://avasam.ir
         run: |
-          npm init -y
-          npm install puppeteer
+          echo "🏷️  AVASAM - Your Download Solution"
+          echo "🌐 https://avasam.ir"
+          echo ""
 
-      - name: Create screenshot script
+      - name: Download files
         run: |
-          cat > screenshot.js << 'ENDOFSCRIPT'
-          const puppeteer = require('puppeteer');
-          const url = process.argv[2];
-          const outputPath = process.argv[3];
+          MODE="${{ github.event.inputs.mode }}"
+          URLS="${{ github.event.inputs.urls }}"
+          ZIP_PASSWORD="${{ github.event.inputs.password }}"
+          SPLIT_THRESHOLD_MB=90
+          SPLIT_THRESHOLD_BYTES=$(( SPLIT_THRESHOLD_MB * 1024 * 1024 ))
 
-          (async () => {
-            const browser = await puppeteer.launch({
-              headless: 'new',
-              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-            });
-            const page = await browser.newPage();
-            await page.setViewport({ width: 1280, height: 720 });
-            
-            try {
-              await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-              await page.screenshot({ path: outputPath, fullPage: true });
-              console.log('Screenshot saved successfully');
-            } catch (err) {
-              console.error('Screenshot error:', err.message);
-              process.exit(1);
-            } finally {
-              await browser.close();
-            }
-          })();
-          ENDOFSCRIPT
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          BRANCH="${GITHUB_REF_NAME}"
 
-      - name: Visit URL and download media
-        run: |
-          RAW_URL="${{ github.event.inputs.url }}"
-          
-          # Normalize URL: try HTTPS first if no protocol given
-          if [[ ! "$RAW_URL" =~ ^https?:// ]]; then
-            HTTPS_URL="https://$RAW_URL"
-            HTTP_URL="http://$RAW_URL"
-            
-            echo "Trying HTTPS: $HTTPS_URL"
-            if curl -L --connect-timeout 10 --max-time 30 -o /dev/null -s -w "%{http_code}" "$HTTPS_URL" | grep -q "200\|301\|302\|303\|307\|308"; then
-              URL="$HTTPS_URL"
-              echo "HTTPS works, using $URL"
-            else
-              echo "HTTPS failed, falling back to HTTP"
-              URL="$HTTP_URL"
-            fi
+          echo "AVASAM (https://avasam.ir) - Downloading with mode: $MODE"
+          echo "Split threshold: $SPLIT_THRESHOLD_MB MB (automatic)"
+          if [ -n "$ZIP_PASSWORD" ]; then
+            echo "Password protection: ENABLED"
           else
-            URL="$RAW_URL"
+            echo "Password protection: DISABLED"
           fi
-          
-          echo "Visiting $URL"
 
-          # Extract domain (remove protocol and optional www)
-          DOMAIN=$(echo "$URL" | awk -F/ '{print $3}' | sed 's/^www\.//')
-          
-          SLUG=$(echo "$URL" | sed 's/[^a-zA-Z0-9]/_/g' | cut -c1-100)
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          FOLDER="pages/$DOMAIN/$SLUG/$TIMESTAMP"
-          MEDIA_FOLDER="$FOLDER/media"
-          mkdir -p "$FOLDER" "$MEDIA_FOLDER"
+          mkdir -p downloads tmp_downloads
 
-          # Download HTML
-          echo "Downloading page HTML..."
-          curl -L -A "Mozilla/5.0" -o "$FOLDER/page.html" "$URL"
+          RANDOM_WORDS=("alpha" "beta" "gamma" "delta" "epsilon" "zeta" "theta" "kappa" "lambda" "sigma" "omega" "nova" "star" "moon" "sun" "sky" "cloud" "river" "ocean" "mountain")
 
-          # Take screenshot
-          echo "Taking screenshot..."
-          node screenshot.js "$URL" "$FOLDER/screenshot.png" && SCREENSHOT_OK=true || SCREENSHOT_OK=false
+          get_random_word() {
+            echo "${RANDOM_WORDS[$RANDOM % ${#RANDOM_WORDS[@]}]}"
+          }
 
-          # Extract links
-          grep -oP 'href="\K[^"]*' "$FOLDER/page.html" | sort -u > "$FOLDER/all_links.txt"
-          grep -oP 'src="\K[^"]*' "$FOLDER/page.html" | sort -u >> "$FOLDER/all_links.txt"
-          sort -u "$FOLDER/all_links.txt" -o "$FOLDER/all_links.txt"
-
-          # Media types to download
-          MEDIA_EXT="png|jpg|jpeg|gif|svg|webp|bmp|ico|mp3|wav|ogg|flac|aac|mp4|webm|avi|mov|mkv|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|tar|gz|7z"
-
-          > "$FOLDER/media_links.txt"
-          > "$FOLDER/other_links.txt"
-          > "$FOLDER/downloaded_media.md"
-          echo "## Downloaded Media Files" > "$FOLDER/downloaded_media.md"
-          echo "" >> "$FOLDER/downloaded_media.md"
-
-          # Base URL for resolving relative links
-          BASE_URL="${URL%%/*}"
-          BASE_DOMAIN=$(echo "$URL" | awk -F/ '{print $3}')
-
-          while IFS= read -r link; do
-            [ -z "$link" ] && continue
-            
-            if [[ "$link" = /* ]]; then
-              ABSOLUTE_URL="${BASE_URL}${link}"
-            elif [[ "$link" =~ ^https?:// ]]; then
-              ABSOLUTE_URL="$link"
-            else
-              ABSOLUTE_URL="${BASE_URL}/${link}"
+          get_unique_folder() {
+            local BASE_PATH="$1"
+            local NAME="$2"
+            if [ ! -d "$BASE_PATH/$NAME" ]; then
+              echo "$NAME"
+              return
             fi
+            local RANDOM_SUFFIX=$(get_random_word)
+            while [ -d "$BASE_PATH/${NAME}_${RANDOM_SUFFIX}" ]; do
+              RANDOM_SUFFIX=$(get_random_word)
+            done
+            echo "${NAME}_${RANDOM_SUFFIX}"
+          }
 
-            ext="${link##*.}"
-            ext_lower=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
-
-            if echo "$ext_lower" | grep -Eq "^($MEDIA_EXT)$"; then
-              echo "Downloading: $ABSOLUTE_URL"
-              FILENAME=$(basename "$link" | sed 's/[?#].*//')
-              [ -f "$MEDIA_FOLDER/$FILENAME" ] && FILENAME="$(date +%s)_$FILENAME"
-              
-              curl -L --retry 2 --max-time 60 -o "$MEDIA_FOLDER/$FILENAME" "$ABSOLUTE_URL" 2>/dev/null && {
-                FILE_SIZE=$(stat -c%s "$MEDIA_FOLDER/$FILENAME" 2>/dev/null || echo 0)
-                if [ "$FILE_SIZE" -gt 0 ]; then
-                  echo "$link" >> "$FOLDER/media_links.txt"
-                  if [[ "$ext_lower" =~ ^(png|jpg|jpeg|gif|svg|webp)$ ]]; then
-                    echo "![$FILENAME](./media/$FILENAME)" >> "$FOLDER/downloaded_media.md"
-                  else
-                    echo "- [$FILENAME](./media/$FILENAME) ($(( FILE_SIZE / 1024 )) KB)" >> "$FOLDER/downloaded_media.md"
-                  fi
-                  echo "OK: $FILENAME"
-                fi
-              } || echo "Failed: $ABSOLUTE_URL"
-            else
-              echo "$link" >> "$FOLDER/other_links.txt"
-            fi
-          done < "$FOLDER/all_links.txt"
-
-          # Build index.md
-          MEDIA_COUNT=$(find "$MEDIA_FOLDER" -type f 2>/dev/null | wc -l)
-          {
-            echo "# Visited: $URL"
-            echo "**Time:** $(date)"
-            echo ""
-            if [ "$SCREENSHOT_OK" = true ] && [ -f "$FOLDER/screenshot.png" ]; then
-              echo "## Screenshot"
-              echo "![Screenshot](./screenshot.png)"
-              echo ""
-            fi
-            echo "## Raw HTML"
-            echo "[page.html](./page.html)"
-            echo ""
-            echo "## Downloaded Media ($MEDIA_COUNT files)"
-            if [ "$MEDIA_COUNT" -gt 0 ]; then
-              cat "$FOLDER/downloaded_media.md"
-            else
-              echo "_No media files downloaded_"
-            fi
-            echo ""
-            echo "## Other Links"
-            if [ -s "$FOLDER/other_links.txt" ]; then
-              head -50 "$FOLDER/other_links.txt" | while read -r link; do
-                echo "- [$link]($link)"
+          get_unique_name() {
+            local BASE_PATH="$1"
+            local NAME="$2"
+            local IS_DIR="$3"
+            if [ "$IS_DIR" = "true" ]; then
+              if [ ! -d "$BASE_PATH/$NAME" ]; then
+                echo "$NAME"
+                return
+              fi
+              local COUNTER=1
+              while [ -d "$BASE_PATH/${NAME}_${COUNTER}" ]; do
+                COUNTER=$((COUNTER + 1))
               done
+              echo "${NAME}_${COUNTER}"
+            else
+              if [ ! -f "$BASE_PATH/$NAME" ]; then
+                echo "$NAME"
+                return
+              fi
+              local FILENAME="${NAME%.*}"
+              local EXT="${NAME##*.}"
+              if [ "$FILENAME" = "$NAME" ]; then
+                EXT=""
+              fi
+              local COUNTER=1
+              if [ -n "$EXT" ] && [ "$FILENAME" != "$EXT" ]; then
+                while [ -f "$BASE_PATH/${FILENAME}_${COUNTER}.${EXT}" ]; do
+                  COUNTER=$((COUNTER + 1))
+                done
+                echo "${FILENAME}_${COUNTER}.${EXT}"
+              else
+                while [ -f "$BASE_PATH/${NAME}_${COUNTER}" ]; do
+                  COUNTER=$((COUNTER + 1))
+                done
+                echo "${NAME}_${COUNTER}"
+              fi
             fi
-            echo ""
-            echo "## Stats"
-            echo "- Links: $(wc -l < "$FOLDER/all_links.txt")"
-            echo "- Media: $MEDIA_COUNT"
-          } > "$FOLDER/index.md"
+          }
 
-          # Update history in browse.md (instead of README.md)
-          BROWSE_FILE="browse.md"
-          if [ ! -f "$BROWSE_FILE" ]; then
-            echo "# Browsed Websites" > "$BROWSE_FILE"
-            echo "" >> "$BROWSE_FILE"
+          create_error_file() {
+            local FILENAME="$1"
+            local ERROR_MSG="$2"
+            local URL="$3"
+            local BASENAME_NO_EXT="${FILENAME%.*}"
+            local FOLDER_NAME=$(get_unique_folder "downloads" "$BASENAME_NO_EXT")
+            mkdir -p "downloads/$FOLDER_NAME"
+            {
+              echo "# ${FILENAME} - Download Failed"
+              echo ""
+              echo "---"
+              echo ""
+              echo "## Download Information"
+              echo ""
+              echo "| Property | Value |"
+              echo "|----------|-------|"
+              echo "| **File** | \`${FILENAME}\` |"
+              echo "| **URL** | ${URL} |"
+              echo "| **Date** | $(date '+%Y-%m-%d %H:%M:%S UTC') |"
+              echo "| **Status** | **FAILED** |"
+              echo ""
+              echo "---"
+              echo ""
+              echo "## Error Details"
+              echo ""
+              echo "\`\`\`"
+              echo "$ERROR_MSG"
+              echo "\`\`\`"
+              echo ""
+              echo "---"
+              echo ""
+              echo "## Possible Solutions"
+              echo ""
+              echo "- Check if the URL is correct and accessible"
+              echo "- The file may have been removed or moved"
+              echo "- The server may require authentication"
+              echo "- For SourceForge: Try using the direct download link"
+              echo "- Some servers block automated downloads (403 Forbidden)"
+              echo "- Try again later if it is a temporary server issue"
+              echo ""
+              echo "---"
+              echo ""
+              echo "*This tool created by [avasam.ir](https://avasam.ir)*"
+            } > "downloads/$FOLDER_NAME/README.md"
+            echo "Error file created: downloads/$FOLDER_NAME/README.md"
+          }
+
+          download_with_retry() {
+            local URL="$1"
+            local FILENAME="$2"
+            local MAX_RETRIES=3
+            local RETRY_DELAY=5
+            local SUCCESS=false
+            local ERROR_LOG=""
+
+            for ((attempt=1; attempt<=MAX_RETRIES; attempt++)); do
+              echo "Attempt $attempt of $MAX_RETRIES for $FILENAME"
+
+              ERROR_LOG=$(aria2c \
+                --split=2 \
+                --max-connection-per-server=2 \
+                --min-split-size=20M \
+                --max-tries=3 \
+                --retry-wait=5 \
+                --timeout=60 \
+                --connect-timeout=30 \
+                --follow-torrent=false \
+                --check-certificate=false \
+                --allow-overwrite=true \
+                --auto-file-renaming=false \
+                --dir="tmp_downloads" \
+                --out="$FILENAME" \
+                "$URL" 2>&1) && SUCCESS=true && break
+
+              echo "aria2c failed, trying curl fallback..."
+
+              ERROR_LOG=$(curl -L -f -# \
+                --retry 3 \
+                --retry-delay 5 \
+                --connect-timeout 30 \
+                --max-time 3600 \
+                -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+                -o "tmp_downloads/$FILENAME" \
+                "$URL" 2>&1) && SUCCESS=true && break
+
+              echo "Waiting ${RETRY_DELAY}s before retry..."
+              sleep $RETRY_DELAY
+              RETRY_DELAY=$((RETRY_DELAY * 2))
+            done
+
+            if [ "$SUCCESS" = true ] && [ -f "tmp_downloads/$FILENAME" ]; then
+              if [ -s "tmp_downloads/$FILENAME" ]; then
+                echo "Successfully downloaded: $FILENAME"
+                return 0
+              else
+                rm -f "tmp_downloads/$FILENAME"
+                create_error_file "$FILENAME" "Downloaded file is empty (0 bytes). The server may have returned an error page instead of the actual file." "$URL"
+                return 1
+              fi
+            else
+              create_error_file "$FILENAME" "$ERROR_LOG" "$URL"
+              return 1
+            fi
+          }
+
+          for URL in $URLS; do
+            FILENAME=$(basename "$URL" | sed 's/%20/ /g' | sed 's/%2F/-/g' | sed 's/[?#].*//')
+            FILENAME=$(echo "$FILENAME" | sed 's/[<>:"|?*]/_/g')
+            echo "Downloading $URL -> $FILENAME"
+            download_with_retry "$URL" "$FILENAME" || echo "Failed to download: $FILENAME"
+          done
+
+          if [ "$MODE" = "zip" ]; then
+            if [ -n "$(ls -A tmp_downloads 2>/dev/null)" ]; then
+              ARCHIVE_NAME="archive_$(date +%Y%m%d_%H%M%S)"
+              FOLDER_NAME=$(get_unique_folder "downloads" "$ARCHIVE_NAME")
+              mkdir -p "downloads/$FOLDER_NAME"
+              echo "Creating zip archive in folder: downloads/$FOLDER_NAME"
+              if [ -n "$ZIP_PASSWORD" ]; then
+                zip -j -P "$ZIP_PASSWORD" "downloads/$FOLDER_NAME/${ARCHIVE_NAME}.zip" tmp_downloads/*
+              else
+                zip -j "downloads/$FOLDER_NAME/${ARCHIVE_NAME}.zip" tmp_downloads/*
+              fi
+
+              # Create README.md for zip mode
+              ZIP_SIZE=$(stat -c%s "downloads/$FOLDER_NAME/${ARCHIVE_NAME}.zip")
+              ZIP_SIZE_MB=$(echo "scale=2; $ZIP_SIZE / 1024 / 1024" | bc)
+              FOLDER_ENCODED=$(echo "${FOLDER_NAME}" | sed 's/ /%20/g')
+              FILE_ENCODED=$(echo "${ARCHIVE_NAME}.zip" | sed 's/ /%20/g')
+              RAW_LINK="https://github.com/${REPO_OWNER}/${REPO_NAME}/raw/${BRANCH}/downloads/${FOLDER_ENCODED}/${FILE_ENCODED}"
+
+              {
+                echo "# ${ARCHIVE_NAME} Archive"
+                echo ""
+                echo "---"
+                echo ""
+                echo "## Download Information"
+                echo ""
+                echo "| Property | Value |"
+                echo "|----------|-------|"
+                echo "| **Archive Name** | \`${ARCHIVE_NAME}.zip\` |"
+                echo "| **Size** | ${ZIP_SIZE_MB} MB |"
+                echo "| **Status** | **Complete (100%)** |"
+                if [ -n "$ZIP_PASSWORD" ]; then
+                  echo "| **Password Protected** | **YES** |"
+                else
+                  echo "| **Password Protected** | **NO** |"
+                fi
+                echo ""
+                echo "---"
+                echo ""
+                echo "## Download Link"
+                echo ""
+                echo "| File | Link |"
+                echo "|------|------|"
+                echo "| \`${ARCHIVE_NAME}.zip\` | [Download](${RAW_LINK}) |"
+                echo ""
+                echo "---"
+                echo ""
+                echo "*This tool created by [avasam.ir](https://avasam.ir)*"
+              } > "downloads/$FOLDER_NAME/README.md"
+            fi
+            rm -rf tmp_downloads
+          else
+            for FILE in tmp_downloads/*; do
+              [ -f "$FILE" ] || continue
+              SIZE=$(stat -c%s "$FILE")
+              BASENAME=$(basename "$FILE")
+              BASENAME_NO_EXT="${BASENAME%.*}"
+
+              FOLDER_NAME=$(get_unique_folder "downloads" "$BASENAME_NO_EXT")
+              mkdir -p "downloads/$FOLDER_NAME"
+
+              FOLDER_ENCODED=$(echo "${FOLDER_NAME}" | sed 's/ /%20/g')
+
+              if [ "$SIZE" -gt "$SPLIT_THRESHOLD_BYTES" ]; then
+                echo "$BASENAME is $(( SIZE / 1024 / 1024 ))MB - splitting into ${SPLIT_THRESHOLD_MB}MB parts"
+                if [ -n "$ZIP_PASSWORD" ]; then
+                  zip -0 -s "${SPLIT_THRESHOLD_MB}m" -P "$ZIP_PASSWORD" "downloads/${FOLDER_NAME}/${BASENAME}.zip" -j "$FILE"
+                else
+                  zip -0 -s "${SPLIT_THRESHOLD_MB}m" "downloads/${FOLDER_NAME}/${BASENAME}.zip" -j "$FILE"
+                fi
+                PARTS_COUNT=$(ls downloads/${FOLDER_NAME}/${BASENAME}.z* 2>/dev/null | wc -l)
+                echo "Parts created in folder downloads/$FOLDER_NAME: $PARTS_COUNT files"
+
+                # Build download links for all parts
+                DOWNLOAD_LINKS=""
+                for part_file in "downloads/${FOLDER_NAME}/${BASENAME}".z* "downloads/${FOLDER_NAME}/${BASENAME}.zip"; do
+                  if [ -f "$part_file" ]; then
+                    PART_BASENAME=$(basename "$part_file")
+                    PART_ENCODED=$(echo "${PART_BASENAME}" | sed 's/ /%20/g')
+                    RAW_LINK="https://github.com/${REPO_OWNER}/${REPO_NAME}/raw/${BRANCH}/downloads/${FOLDER_ENCODED}/${PART_ENCODED}"
+                    DOWNLOAD_LINKS="${DOWNLOAD_LINKS}| \`${PART_BASENAME}\` | [Download](${RAW_LINK}) |"$'\n'
+                  fi
+                done
+
+                {
+                  echo "# ${BASENAME} Archive"
+                  echo ""
+                  echo "---"
+                  echo ""
+                  echo "## Download Information"
+                  echo ""
+                  echo "| Property | Value |"
+                  echo "|----------|-------|"
+                  echo "| **Original File** | \`${BASENAME}\` |"
+                  echo "| **Original Size** | $(( SIZE / 1024 / 1024 )) MB |"
+                  echo "| **Parts** | ${PARTS_COUNT} |"
+                  echo "| **Status** | **Complete (100%)** |"
+                  if [ -n "$ZIP_PASSWORD" ]; then
+                    echo "| **Password Protected** | **YES** |"
+                  else
+                    echo "| **Password Protected** | **NO** |"
+                  fi
+                  echo ""
+                  echo "---"
+                  echo ""
+                  echo "## Download Links"
+                  echo ""
+                  echo "| File | Link |"
+                  echo "|------|------|"
+                  printf '%s' "${DOWNLOAD_LINKS}"
+                  echo ""
+                  echo "---"
+                  echo ""
+                  echo "## How to Extract"
+                  echo ""
+                  echo "**Windows:**"
+                  echo "- Use 7-Zip or WinRAR to extract \`${BASENAME}.zip\`"
+                  echo ""
+                  echo "**Linux/Mac:**"
+                  echo "\`\`\`bash"
+                  echo "zip -F ${BASENAME}.zip --out combined.zip"
+                  echo "unzip combined.zip"
+                  echo "\`\`\`"
+                  echo ""
+                  echo "---"
+                  echo ""
+                  echo "*This tool created by [avasam.ir](https://avasam.ir)*"
+                } > "downloads/${FOLDER_NAME}/README.md"
+              else
+                echo "$BASENAME - creating zip in folder: downloads/$FOLDER_NAME"
+                if [ -n "$ZIP_PASSWORD" ]; then
+                  zip -j -P "$ZIP_PASSWORD" "downloads/${FOLDER_NAME}/${BASENAME}.zip" "$FILE"
+                else
+                  zip -j "downloads/${FOLDER_NAME}/${BASENAME}.zip" "$FILE"
+                fi
+
+                FILE_ENCODED=$(echo "${BASENAME}.zip" | sed 's/ /%20/g')
+                RAW_LINK="https://github.com/${REPO_OWNER}/${REPO_NAME}/raw/${BRANCH}/downloads/${FOLDER_ENCODED}/${FILE_ENCODED}"
+
+                {
+                  echo "# ${BASENAME} Archive"
+                  echo ""
+                  echo "---"
+                  echo ""
+                  echo "## Download Information"
+                  echo ""
+                  echo "| Property | Value |"
+                  echo "|----------|-------|"
+                  echo "| **Original File** | \`${BASENAME}\` |"
+                  echo "| **Size** | $(( SIZE / 1024 / 1024 )) MB |"
+                  echo "| **Status** | **Complete (100%)** |"
+                  if [ -n "$ZIP_PASSWORD" ]; then
+                    echo "| **Password Protected** | **YES** |"
+                  else
+                    echo "| **Password Protected** | **NO** |"
+                  fi
+                  echo ""
+                  echo "---"
+                  echo ""
+                  echo "## Download Link"
+                  echo ""
+                  echo "| File | Link |"
+                  echo "|------|------|"
+                  echo "| \`${BASENAME}.zip\` | [Download](${RAW_LINK}) |"
+                  echo ""
+                  echo "---"
+                  echo ""
+                  echo "*This tool created by [avasam.ir](https://avasam.ir)*"
+                } > "downloads/${FOLDER_NAME}/README.md"
+              fi
+            done
+            rm -rf tmp_downloads
           fi
-          # Add relative link to the index.md file
-          echo "- [${SLUG} (${TIMESTAMP})]($FOLDER/index.md) — $MEDIA_COUNT media files" >> "$BROWSE_FILE"
 
-          # Save variables for zip step
-          echo "DOMAIN=$DOMAIN" >> $GITHUB_ENV
-          echo "SLUG=$SLUG" >> $GITHUB_ENV
-          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
-
-          echo "Done: $MEDIA_COUNT files downloaded"
-
-      - name: Create zip archive of the timestamp folder
+      - name: Update README.md with download links
         run: |
-          cd pages/$DOMAIN/$SLUG
-          zip -r "$TIMESTAMP.zip" "$TIMESTAMP"
-          cd ../../..
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}/downloads"
 
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add pages/ browse.md
-          if git diff --staged --quiet; then
-            echo "Nothing to commit"
+          FOLDERS=$(find downloads -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort)
+
+          if [ -z "$FOLDERS" ]; then
+            echo "No folders found in downloads"
             exit 0
           fi
-          git commit -m "Saved page with media and screenshot [skip ci]"
-          git pull --rebase
-          git push
+
+          # Create README.md inside downloads folder with list of downloaded files
+          {
+            echo "# Downloaded list :"
+            echo ""
+            echo "$FOLDERS" | while read -r FOLDER; do
+              if [ -n "$FOLDER" ]; then
+                FOLDER_ENCODED=$(echo "${FOLDER}" | sed 's/ /%20/g')
+                echo "- [${FOLDER}](./${FOLDER_ENCODED})"
+              fi
+            done
+            echo ""
+            echo "---"
+            echo ""
+            echo "*This tool created by [avasam.ir](https://avasam.ir)*"
+          } > "downloads/README.md"
+
+          echo "downloads/README.md created with list of downloaded files"
+
+          # Update root README.md
+          SECTION_TITLE="فایل های دانلود شده در گیتهاب شما :"
+
+          if [ ! -f "README.md" ]; then
+            echo "# AVASAM Downloader" > README.md
+            echo "" >> README.md
+            echo "https://avasam.ir" >> README.md
+            echo "" >> README.md
+          fi
+
+          if grep -q "$SECTION_TITLE" README.md; then
+            sed -i "/$SECTION_TITLE/,/^---$/d" README.md
+            sed -i '${/^$/d;}' README.md
+          fi
+
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "## $SECTION_TITLE"
+            echo ""
+            COUNTER=1
+            echo "$FOLDERS" | while read -r FOLDER; do
+              if [ -n "$FOLDER" ]; then
+                echo "${COUNTER}. [$FOLDER]($REPO_URL/$FOLDER)"
+                echo ""
+                COUNTER=$((COUNTER + 1))
+              fi
+            done
+            echo "---"
+          } >> README.md
+
+          echo "README.md updated with download links"
+
+      - name: Commit & Push in batches of 5 files (AVASAM)
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          echo "AVASAM (https://avasam.ir) - Preparing to commit files"
+
+          git add README.md
+          git add downloads/README.md
+          mapfile -t ALL_FILES < <(git ls-files --others --modified --exclude-standard downloads/)
+
+          TOTAL=${#ALL_FILES[@]}
+          echo "Total files to push: $TOTAL"
+
+          if [ "$TOTAL" -eq 0 ]; then
+            if [ -n "$(git diff --cached --name-only)" ]; then
+              git commit -m "[AVASAM] Update README.md [skip ci]"
+              git push origin HEAD:"$BRANCH"
+            fi
+            echo "Nothing else to commit"
+            exit 0
+          fi
+
+          BATCH_SIZE=5
+          BATCH_NUM=0
+
+          for (( i=0; i<TOTAL; i+=BATCH_SIZE )); do
+            BATCH_NUM=$(( BATCH_NUM + 1 ))
+            BATCH=("${ALL_FILES[@]:i:BATCH_SIZE}")
+
+            echo "Pushing batch $BATCH_NUM: files $((i+1)) to $(( i + ${#BATCH[@]} )) of $TOTAL"
+
+            git add "${BATCH[@]}"
+            if [ "$BATCH_NUM" -eq 1 ]; then
+              git add README.md
+              git add downloads/README.md
+            fi
+
+            if [ -n "$(git diff --cached --name-only)" ]; then
+              git commit -m "[AVASAM] Add downloaded files - batch $BATCH_NUM [skip ci]"
+              git pull --rebase origin "$BRANCH"
+              git push origin HEAD:"$BRANCH"
+              echo "Batch $BATCH_NUM pushed"
+            else
+              echo "Batch $BATCH_NUM skipped - no new changes"
+            fi
+          done
+
+          echo "All $TOTAL files pushed in $BATCH_NUM batch(es) - AVASAM (https://avasam.ir)"
