@@ -55,6 +55,24 @@ jobs:
           })();
           ENDOFSCRIPT
 
+          RAW_URL="${{ github.event.inputs.url }}"
+          
+          # Normalize URL: try HTTPS first if no protocol given
+          if [[ ! "$RAW_URL" =~ ^https?:// ]]; then
+            HTTPS_URL="https://$RAW_URL"
+            HTTP_URL="http://$RAW_URL"
+            
+            echo "Trying HTTPS: $HTTPS_URL"
+            if curl -L --connect-timeout 10 --max-time 30 -o /dev/null -s -w "%{http_code}" "$HTTPS_URL" | grep -q "200\|301\|302\|303\|307\|308"; then
+              URL="$HTTPS_URL"
+              echo "HTTPS works, using $URL"
+            else
+              echo "HTTPS failed, falling back to HTTP"
+              URL="$HTTP_URL"
+            fi
+          else
+            URL="$RAW_URL"
+          fi
 
           # Take screenshot
           echo "Taking screenshot..."
