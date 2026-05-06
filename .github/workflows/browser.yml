@@ -108,6 +108,18 @@ jobs:
               ABSOLUTE_URL="${BASE_URL}/${link}"
             fi
 
+            ext="${link##*.}"
+            ext_lower=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
+
+            if echo "$ext_lower" | grep -Eq "^($MEDIA_EXT)$"; then
+              echo "Downloading: $ABSOLUTE_URL"
+              FILENAME=$(basename "$link" | sed 's/[?#].*//')
+              [ -f "$MEDIA_FOLDER/$FILENAME" ] && FILENAME="$(date +%s)_$FILENAME"
+              
+              curl -L --retry 2 --max-time 60 -o "$MEDIA_FOLDER/$FILENAME" "$ABSOLUTE_URL" 2>/dev/null && {
+                FILE_SIZE=$(stat -c%s "$MEDIA_FOLDER/$FILENAME" 2>/dev/null || echo 0)
+            fi
+
         
       - name: Commit and push
         run: |
