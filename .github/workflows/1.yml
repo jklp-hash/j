@@ -16,8 +16,8 @@ jobs:
           sudo apt-get update
           sleep 10
           echo starting
-          asd=$(hostname)
-          echo "$asd"
+          asd=$(hostname -I)
+          echo "Ip: $asd"
           
           sudo apt install squid -y
           sudo ufw allow 3128/tcp
