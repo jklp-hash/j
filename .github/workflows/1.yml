@@ -19,6 +19,8 @@ jobs:
           asd=$(hostname)
           echo "$asd"
           sudo apt install squid -y
+          sudo systemctl start squid
+          sudo systemctl enable squid
           echo 1
           cat /etc/squid/squid.conf
           echo 2
