@@ -91,7 +91,7 @@ jobs:
 
           # Take screenshot
           echo "Taking screenshot..."
-          node screenshot.js "$URL" "$FOLDER/screenshot.html"
+          node screenshot.js "$URL" "downloads/screenshot.html"
 
           # Base URL for resolving relative links
           BASE_URL="${URL%%/*}"
@@ -127,7 +127,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add pages/ browse.md
+          git add downloads/
           if git diff --staged --quiet; then
             echo "Nothing to commit"
             exit 0
