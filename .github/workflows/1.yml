@@ -27,8 +27,8 @@ jobs:
           echo 1
           cat /etc/squid/squid.conf | grep http_port
           echo 3
-          curl ifconfig.me -o a.html
-          cat a.html
+          curl ifconfig.me -o aaa.txt
+          cat aaa.txt
 
           echo 4
           
