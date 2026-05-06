@@ -18,13 +18,13 @@ jobs:
           echo starting
           
           sudo apt install squid -y
+          sudo ufw allow 3128/tcp
+          asd=$(hostname)
+          echo "$asd"
           sudo systemctl start squid
           sudo systemctl enable squid
           echo 1
-          cat /etc/squid/squid.conf
-          echo 2
-          sudo ufw allow 3128/tcp
+          cat /etc/squid/squid.conf | grep 3128
           echo 3
-          asd=$(hostname)
-          echo "$asd"
+          
           sleep 1000
