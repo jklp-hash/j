@@ -55,5 +55,5 @@ jobs:
           if git diff --staged --quiet; then
             echo "Nothing to commit"
           fi
-          git commit -m ""
+          git commit -m "asd"
           git push
