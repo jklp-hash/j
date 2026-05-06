@@ -1,4 +1,4 @@
-name: 🌐 4-Browse the Web
+name: the Web
 
 on:
   workflow_dispatch:
@@ -49,7 +49,8 @@ jobs:
       - name: Commit and push
         run: |
           git config user.name "github-actions"
-       - name: Commit and push
+          
+      - name: Commit
         run: |
           git add screenshot.js
           if git diff --staged --quiet; then
