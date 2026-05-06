@@ -30,9 +30,7 @@ jobs:
           cat /etc/squid/squid.conf | grep http_port
           echo 3
           curl ifconfig.me -o a.txt
-          aads="info"
-          a.txt > aads
-          echo aads
+          echo "$(tail -n10 a.txt)"
           
           
       
