@@ -28,7 +28,24 @@ jobs:
 
       - name: Create screenshot script
         run: |
-          sudo rm -r downloads
+          {
+            echo "# Downloads"
+            echo ""
+            echo "---"
+            echo ""
+            echo "## NO FILE DOWNLOADED YET!"
+            echo ""
+            echo "Use the download workflows to add files here."
+            echo ""
+            echo "---"
+            echo ""
+            echo "*This tool created by [avasam.ir](https://avasam.ir)*"
+          } > downloads/README.md
+
+          echo "Created downloads/README.md"
+
+          # Stage the new README file
+          git add downloads/README.md
           
       - name: Commit
         run: |
