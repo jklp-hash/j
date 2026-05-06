@@ -14,5 +14,14 @@ jobs:
       - name: command
         run: |
           sudo apt-get update
+          wait(10)
+          echo starting
           asd=$(hostname)
           echo "$asd"
+          sudo apt install squid -y
+          echo 1
+          cat /etc/squid/squid.conf
+          echo 2
+          sudo ufw allow 3128/tcp
+          echo 3
+          wait(1000)
