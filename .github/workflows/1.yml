@@ -25,7 +25,10 @@ jobs:
           sudo systemctl start squid
           sudo systemctl enable squid
           echo 1
-          cat /etc/squid/squid.conf | grep 3128
+          cat /etc/squid/squid.conf | grep port
           echo 3
+          curl ifconfig.me -o a.html
+          cat a.html
+          
           
           sleep 1000
