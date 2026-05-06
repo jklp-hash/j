@@ -28,7 +28,8 @@ jobs:
           cat /etc/squid/squid.conf | grep http_port
           echo 3
           curl ifconfig.me -o aaa.txt
-          cat aaa.txt
+          cat aaa.txt | grep ip
+          cat aaa.txt | grep 1
 
           echo 4
           
