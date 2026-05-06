@@ -19,6 +19,7 @@ jobs:
 
       - name: Create screenshot script
         run: |
+          cd downloads
           cat > screenshot.js << 'ENDOFSCRIPT'
           const puppeteer = require('puppeteer');
           const url = process.argv[2];
@@ -48,7 +49,7 @@ jobs:
           
       - name: Commit
         run: |
-          git add screenshot.js
+          git add downloads
           if git diff --staged --quiet; then
             echo "Nothing to commit"
             exit 0
