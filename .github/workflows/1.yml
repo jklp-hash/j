@@ -14,5 +14,5 @@ jobs:
       - name: command
         run: |
           sudo apt-get update
-          ifconfig -a | tee file1
-          lpr file1
+          asd = $(hostname -l)
+          echo "$asd"
