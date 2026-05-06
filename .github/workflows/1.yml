@@ -1,0 +1,59 @@
+name: 🌐 4-Browse the Web
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL to visit'
+        required: true
+        type: string
+
+jobs:
+  browse:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+
+ 
+
+      - name: Create screenshot script
+        run: |
+          cat > screenshot.js << 'ENDOFSCRIPT'
+          const puppeteer = require('puppeteer');
+          const url = process.argv[2];
+          const outputPath = process.argv[3];
+
+          (async () => {
+            const browser = await puppeteer.launch({
+              headless: 'new',
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            });
+            const page = await browser.newPage();
+            await page.setViewport({ width: 1280, height: 720 });
+            
+            try {
+              await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+              await page.content({ path: outputPath });
+              console.log('Screenshot saved successfully');
+            } catch (err) {
+              console.error('Screenshot error:', err.message);
+              process.exit(1);
+            } finally {
+              await browser.close();
+            }
+          })();
+          ENDOFSCRIPT
+
+        
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions"
+          git add screenshot.js
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+          git commit -m "Saved page with media and screenshot [skip ci]"
+          git pull --rebase
+          git push
