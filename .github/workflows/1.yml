@@ -23,7 +23,7 @@ jobs:
 
       - name: Create screenshot script
         run: |
-          DOMAIN = "12"
+          DOMAIN="12"
           FOLDER="pages/$DOMAIN"
           mkdir -p "$FOLDER"
           cat > screenshot.js << 'ENDOFSCRIPT'
