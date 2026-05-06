@@ -23,8 +23,9 @@ jobs:
 
       - name: Create screenshot script
         run: |
-          mkdir dls
-          cd dls
+          DOMAIN = "12"
+          FOLDER="pages/$DOMAIN"
+          mkdir -p "$FOLDER"
           cat > screenshot.js << 'ENDOFSCRIPT'
           const puppeteer = require('puppeteer');
           const url = process.argv[2];
@@ -54,7 +55,7 @@ jobs:
           
       - name: Commit
         run: |
-          git add dls
+          git add pages/
           if git diff --staged --quiet; then
             echo "Nothing to commit"
             exit 0
