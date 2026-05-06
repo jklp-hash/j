@@ -28,7 +28,7 @@ jobs:
 
       - name: Create screenshot script
         run: |
-          sudo rmdir downloads
+          sudo rm -r downloads
           
       - name: Commit
         run: |
