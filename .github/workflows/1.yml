@@ -29,8 +29,7 @@ jobs:
           echo 3
           curl ifconfig.me -o a.html
           cat a.html
-          git add a.html
-          git commit -m "ads"
+
           echo 4
           
           sleep 1000
