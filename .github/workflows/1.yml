@@ -29,6 +29,6 @@ jobs:
           echo 3
           curl ifconfig.me -o a.html
           cat a.html
-          
+          echo 4
           
           sleep 1000
