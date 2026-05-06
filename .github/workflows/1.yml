@@ -16,11 +16,12 @@ jobs:
           sudo apt-get update
           sleep 10
           echo starting
+          asd=$(hostname)
+          echo "$asd"
           
           sudo apt install squid -y
           sudo ufw allow 3128/tcp
-          asd=$(hostname)
-          echo "$asd"
+          
           sudo systemctl start squid
           sudo systemctl enable squid
           echo 1
