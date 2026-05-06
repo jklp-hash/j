@@ -10,8 +10,8 @@ jobs:
       contents: write
       
     steps:
-      - name: command
-        uses: actions/checkout@v4
+     # - name: command
+        #uses: actions/checkout@v4
       
       - name: command
         run: |
@@ -29,12 +29,13 @@ jobs:
           echo 1
           cat /etc/squid/squid.conf | grep http_port
           echo 3
-          curl ifconfig.me -o a.html
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add a.html
-          git commit -m "fcgv"
-          git push
+          curl ifconfig.me -o a.txt
+          aads=""
+          aads < a.txt
+          echo aads
+          
+          
+      
 
           echo 4
           
