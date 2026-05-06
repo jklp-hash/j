@@ -32,31 +32,8 @@ jobs:
           FOLDER="pages/$DOMAIN"
           mkdir -p "$FOLDER"
           cd $FOLDER
-          cat > screenshot.js << 'ENDOFSCRIPT'
-          const puppeteer = require('puppeteer');
-          const url = process.argv[2];
-          const outputPath = process.argv[3];
 
-          (async () => {
-            const browser = await puppeteer.launch({
-              headless: 'new',
-              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-            });
-            const page = await browser.newPage();
-            await page.setViewport({ width: 1280, height: 720 });
-            
-            try {
-              await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-              await page.content({ path: outputPath });
-              console.log('Screenshot saved successfully');
-            } catch (err) {
-              console.error('Screenshot error:', err.message);
-              process.exit(1);
-            } finally {
-              await browser.close();
-            }
-          })();
-          ENDOFSCRIPT
+          touch a.txt
           
           cd ..
           
