@@ -25,10 +25,12 @@ jobs:
           sudo systemctl start squid
           sudo systemctl enable squid
           echo 1
-          cat /etc/squid/squid.conf | grep port
+          cat /etc/squid/squid.conf | grep http_port
           echo 3
           curl ifconfig.me -o a.html
           cat a.html
+          git add a.html
+          git commit -m "ads"
           echo 4
           
           sleep 1000
