@@ -31,10 +31,12 @@ jobs:
           echo 3
           curl ifconfig.me -o a.txt
           echo "$(tail -n10 a.txt)"
+
+          
           
           
       
 
           echo 4
-          
+          sleep 1000
          
