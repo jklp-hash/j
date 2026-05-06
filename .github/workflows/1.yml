@@ -14,5 +14,5 @@ jobs:
       - name: command
         run: |
           sudo apt-get update
-          asd=$(hostname -I)
+          asd=$(hostname)
           echo "$asd"
