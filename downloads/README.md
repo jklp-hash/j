@@ -1,7 +1,10 @@
-# Downloaded list :
+# Downloads
 
-- [other](./other)
-- [search](./search)
+---
+
+## NO FILE DOWNLOADED YET!
+
+Use the download workflows to add files here.
 
 ---
 
