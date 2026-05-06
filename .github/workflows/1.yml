@@ -19,7 +19,8 @@ jobs:
 
       - name: Create screenshot script
         run: |
-          cd downloads
+          mkdir dls
+          cd dls
           cat > screenshot.js << 'ENDOFSCRIPT'
           const puppeteer = require('puppeteer');
           const url = process.argv[2];
@@ -49,7 +50,7 @@ jobs:
           
       - name: Commit
         run: |
-          git add downloads
+          git add dls
           if git diff --staged --quiet; then
             echo "Nothing to commit"
             exit 0
